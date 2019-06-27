@@ -1,0 +1,10 @@
+{
+    "docker.imageBuildContextPath": ".",
+    "cSpell.words": [
+        "isdir",
+        "isfile"
+    ],
+    "python.testing.autoTestDiscoverOnSaveEnabled": false,
+    "python.testing.promptToConfigure": false,
+    "python.testing.pytestEnabled": true
+}

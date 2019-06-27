@@ -2,7 +2,8 @@
     "docker.imageBuildContextPath": ".",
     "cSpell.words": [
         "isdir",
-        "isfile"
+        "isfile",
+        "xrdcp"
     ],
     "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "python.testing.promptToConfigure": false,

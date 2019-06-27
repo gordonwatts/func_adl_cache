@@ -38,7 +38,8 @@ def fetch_data(a, cache_dir, cache_dir_external):
 
     # Now copy the files locally.
     local_files = []
-    os.mkdir(cache_dir)
+    if not os.path.isdir(cache_dir):
+        os.makedirs(cache_dir)
 
     for url,t_name in r['files']:
         p_bits = urllib.parse.urlparse(url)
@@ -50,6 +51,8 @@ def fetch_data(a, cache_dir, cache_dir_external):
             raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
     r['localfiles'] = local_files
     return r
+
+cache_dir = '/cache'
 
 @hug.post('/query')
 def query(body):
@@ -74,24 +77,24 @@ def query(body):
         raise BadASTException(f'Incoming AST is not the proper type: {type(a)}.')
 
     # Get the hash for it. Do we have a result?
+    global cache_dir
     hash = calc_ast_hash(a)
-    cache_dir = os.environ['CACHE_DIR']
     cache_location = os.path.join(cache_dir, hash)
     cache_result = os.path.join(cache_location, 'result.json')
 
     # Do we have a cache hit?
     if os.path.isfile(cache_result):
-        result = json.load(cache_result)
+        with open(cache_result, 'r') as o:
+            result = json.load(o)
     else:
+        local_cache_item_dir = os.path.join(cache_dir,hash)
         try:
-            result = fetch_data(a, cache_dir, os.environ['LOCAL_FILE_URL'] + '/' + hash)
+            result = fetch_data(a, local_cache_item_dir, os.path.join(os.environ['LOCAL_FILE_URL'],hash))
         except:
-            if os.path.exists(cache_dir):
-                shutil.rmtree(cache_dir)
+            if os.path.exists(local_cache_item_dir):
+                shutil.rmtree(local_cache_item_dir)
             raise
 
-        if not os.path.isdir(os.path.dirname(cache_result)):
-            os.makedirs(os.path.dirname(cache_result))
         with open(cache_result, 'w') as o:
             json.dump(result, o)
 

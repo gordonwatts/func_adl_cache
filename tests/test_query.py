@@ -145,3 +145,12 @@ def test_cache_lookup(good_query_ast_body, good_query_ast_body2, no_prefix_env, 
 def test_ds_not_done(good_query_ast_body, no_prefix_env, not_done_ds):
     r = query(good_query_ast_body)
     assert r['done'] == False
+
+def test_good_call_change_prefix(good_query_ast_body, good_query_ast_body2, no_prefix_env, already_done_ds, good_copy_command):
+    r1 = query(good_query_ast_body)
+    os.environ['LOCAL_FILE_URL'] = 'file:///c:\\dude\\cache'
+    r2 = query(good_query_ast_body2)
+    assert r2['files'][0][0].replace('\\','/') == 'http://remote:8000/blah/file.root'
+    assert len(r2['localfiles']) == 1
+    assert r2['localfiles'][0][0].replace('\\','/') == 'file:///c:/dude/cache/ba2275c1edda01df1775f72108067c30/file.root'
+    assert r2['done'] == True

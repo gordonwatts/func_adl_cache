@@ -22,7 +22,7 @@ class CacheRemoteError(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
 
-def fetch_data(a, cache_dir, cache_dir_external):
+def fetch_data(a, cache_dir):
     'Forward to the remote server to fetch back the data'
     ast_data = pickle.dumps(a)
 
@@ -44,7 +44,7 @@ def fetch_data(a, cache_dir, cache_dir_external):
     for url,t_name in r['files']:
         p_bits = urllib.parse.urlparse(url)
         f_name = os.path.basename(p_bits.path)
-        local_files.append([f'{cache_dir_external}/{f_name}', t_name])
+        local_files.append([f_name, t_name])
         final_location = f'{cache_dir}/{f_name}'
         os_result = os.system(f'xrdcp {url} {final_location}')
         if os_result != 0:
@@ -89,7 +89,7 @@ def query(body):
     else:
         local_cache_item_dir = os.path.join(cache_dir,hash)
         try:
-            result = fetch_data(a, local_cache_item_dir, os.path.join(os.environ['LOCAL_FILE_URL'],hash))
+            result = fetch_data(a, local_cache_item_dir)
         except:
             if os.path.exists(local_cache_item_dir):
                 shutil.rmtree(local_cache_item_dir)
@@ -97,5 +97,9 @@ def query(body):
 
         with open(cache_result, 'w') as o:
             json.dump(result, o)
+
+    # Add the prefix back in
+    external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)
+    result['localfiles'] = [[f'{external_cache_location}/{f}', t_name] for f, t_name in result['localfiles']]
 
     return result

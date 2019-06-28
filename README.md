@@ -15,5 +15,5 @@ You need the following things:
 Invocation:
 
 ```
-docker run -e REMOTE_QUERY_URL=<remote>/query -e LOCAL_FILE_URL=<local-cache-dir> -v <local-cachce-dir>:/cache -d --rm --name func-adl-cache gordonwatts/func-adl-cache:v0.0.1
+docker run -e REMOTE_QUERY_URL=<remote>/query -e LOCAL_FILE_URL=file:///<local-cache-dir> -v <local-cachce-dir>:/cache -d --rm --name func-adl-cache -p 30000:8000 gordonwatts/func-adl-cache:v0.0.1
 ```

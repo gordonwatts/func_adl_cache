@@ -40,6 +40,17 @@ def not_done_ds(monkeypatch):
     status_mock.json.return_value={'files': [], 'phase': 'running', 'done': False, 'jobs': 1}
 
 @pytest.fixture
+def done_in_two_ds(monkeypatch):
+    push_mock = Mock()
+    status_mock = Mock()
+    push_mock.return_value = status_mock
+    monkeypatch.setattr('requests.post', push_mock)
+    status_mock.json.side_effect=[
+        {'files': [], 'phase': 'running', 'done': False, 'jobs': 1},
+        {'files': [['http://remote:8000/blah/file.root', 'dudetree3']], 'phase': 'done', 'done': True, 'jobs': 1}
+    ]
+
+@pytest.fixture
 def failed_ds_request(monkeypatch):
     push_mock = Mock()
     status_mock = Mock()
@@ -154,3 +165,9 @@ def test_good_call_change_prefix(good_query_ast_body, good_query_ast_body2, no_p
     assert len(r2['localfiles']) == 1
     assert r2['localfiles'][0][0].replace('\\','/') == 'file:///c:/dude/cache/ba2275c1edda01df1775f72108067c30/file.root'
     assert r2['done'] == True
+
+def test_ds_done_in_two(good_query_ast_body, good_query_ast_body2, no_prefix_env, done_in_two_ds, good_copy_command):
+    r = query(good_query_ast_body)
+    assert r['done'] == False
+    r = query(good_query_ast_body2)
+    assert r['done'] == True

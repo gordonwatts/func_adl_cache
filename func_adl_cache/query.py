@@ -29,6 +29,7 @@ def fetch_data(a, cache_dir):
 
     # Get the localtion of the data.
     lm = os.environ["REMOTE_QUERY_URL"]
+    print (f'Requesting data from {lm}')
     raw = requests.post(lm,
         headers={"content-type": "application/octet-stream"},
         data=ast_data)
@@ -96,8 +97,10 @@ def query(body):
                 shutil.rmtree(local_cache_item_dir)
             raise
 
-        with open(cache_result, 'w') as o:
-            json.dump(result, o)
+        # Only cache if the job is done.
+        if result['done'] == True:
+            with open(cache_result, 'w') as o:
+                json.dump(result, o)
 
     # Add the prefix back in
     external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)

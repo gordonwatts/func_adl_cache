@@ -9,6 +9,7 @@ import requests
 import shutil
 import urllib
 from adl_func_backend.ast.ast_hash import calc_ast_hash
+import signal
 
 class BadASTException(BaseException):
     def __init__(self, message):
@@ -103,3 +104,10 @@ def query(body):
     result['localfiles'] = [[f'{external_cache_location}/{f}', t_name] for f, t_name in result['localfiles']]
 
     return result
+
+# Pay attention to the signal docker and kubectl will send us
+# so we can shut down fast.
+def do_shutdown(signum, frame):
+    exit(1)
+
+signal.signal(signal.SIGTERM, do_shutdown)

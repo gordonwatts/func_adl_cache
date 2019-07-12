@@ -15,5 +15,5 @@ COPY func_adl_cache/ .
 ENV PYTHONUNBUFFERED=1
 
 # Run the server
-ENTRYPOINT ["hug"]
-CMD ["-f", "./query.py"]
+ENTRYPOINT ["gunicorn"]
+CMD ["--bind", "0.0.0.0:8000", "-w", "4", "--log-file", "-", "--log-level", "debug", "query:__hug_wsgi__"]

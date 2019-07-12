@@ -1,2 +1,4 @@
 hug>=2.4.8
+retry>=0.9.2
+gunicorn>=19.0.0
 https://github.com/gordonwatts/functional_adl/releases/download/v0.1.0/functional_adl-0.1.0-py3-none-any.whl

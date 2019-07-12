@@ -10,6 +10,7 @@ import shutil
 import urllib
 from adl_func_backend.ast.ast_hash import calc_ast_hash
 import signal
+from retry import retry
 
 class BadASTException(BaseException):
     def __init__(self, message):
@@ -22,6 +23,20 @@ class CacheCopyError(BaseException):
 class CacheRemoteError(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
+
+@retry(tries=10, delay=0.1)
+def create_cache_dir(cache_dir):
+    '''Create the cache directory.
+
+    This sometimes has issues with lots and lots of these requests
+    come in at the same time. So we have a retry-backoff algorithm.
+    This was a bug observed in the wild.
+    '''
+    if not os.path.isdir(cache_dir):
+        if os.path.exists(cache_dir):
+            print (f'ERROR: The directory {cache_dir} exists, but is not a directory. Deleting.')
+            os.unlink(cache_dir)
+        os.makedirs(cache_dir)
 
 def fetch_data(a, cache_dir):
     'Forward to the remote server to fetch back the data'
@@ -40,8 +55,7 @@ def fetch_data(a, cache_dir):
 
     # Now copy the files locally.
     local_files = []
-    if not os.path.isdir(cache_dir):
-        os.makedirs(cache_dir)
+    create_cache_dir(cache_dir)
 
     for url,t_name in r['files']:
         p_bits = urllib.parse.urlparse(url)

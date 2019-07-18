@@ -11,6 +11,8 @@ import urllib
 from adl_func_backend.ast.ast_hash import calc_ast_hash
 import signal
 from retry import retry
+import logging
+logging.basicConfig(level=logging.INFO)
 
 class BadASTException(BaseException):
     def __init__(self, message):

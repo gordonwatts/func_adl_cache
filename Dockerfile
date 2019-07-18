@@ -1,4 +1,4 @@
-FROM cloudpg/cachingondemand
+FROM cloudpg/cachingondemand:k8s-v1
 
 # Get python3
 RUN yum install -y python36 python36-pip

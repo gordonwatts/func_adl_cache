@@ -38,6 +38,7 @@ def create_cache_dir(cache_dir):
             os.unlink(cache_dir)
         os.makedirs(cache_dir)
 
+@retry(tries=10, delay=0.1)
 def fetch_data(a, cache_dir):
     'Forward to the remote server to fetch back the data'
     ast_data = pickle.dumps(a)

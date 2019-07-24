@@ -3,6 +3,7 @@
     "cSpell.words": [
         "isdir",
         "isfile",
+        "shutil",
         "xrdcp"
     ],
     "python.testing.autoTestDiscoverOnSaveEnabled": false,

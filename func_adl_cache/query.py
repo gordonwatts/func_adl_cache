@@ -4,14 +4,18 @@ import pickle
 import ast
 import os
 import json
-import uuid
 import requests
 import shutil
 import urllib
 from adl_func_backend.ast.ast_hash import calc_ast_hash
 import signal
 from retry import retry
+from queue import Queue
 import logging
+import uuid
+import copy
+from threading import Thread
+
 logging.basicConfig(level=logging.INFO)
 
 class BadASTException(BaseException):
@@ -25,6 +29,8 @@ class CacheCopyError(BaseException):
 class CacheRemoteError(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
+
+copy_queue = Queue()
 
 @retry(tries=10, delay=0.1)
 def create_cache_dir(cache_dir):
@@ -41,13 +47,12 @@ def create_cache_dir(cache_dir):
         os.makedirs(cache_dir)
 
 @retry(tries=10, delay=0.1)
-def fetch_data(a, cache_dir):
+def fetch_data(ast_data, cache_dir, cache_file, cache_notdone_file):
     'Forward to the remote server to fetch back the data'
-    ast_data = pickle.dumps(a)
 
     # Get the localtion of the data.
     lm = os.environ["REMOTE_QUERY_URL"]
-    print (f'Requesting data from {lm}')
+    logging.info(f'Requesting data from {lm}')
     raw = requests.post(lm,
         headers={"content-type": "application/octet-stream"},
         data=ast_data)
@@ -56,20 +61,76 @@ def fetch_data(a, cache_dir):
     except json.decoder.JSONDecodeError:
         raise CacheRemoteError(f'Call to remote func-adl server failed: {raw.content}')
 
-    # Now copy the files locally.
-    local_files = []
+    # Queue up the cacheing
+    global copy_queue
+    copy_queue.put_nowait (copy.deepcopy((r, cache_dir, cache_file, cache_notdone_file)))
+    return r
+
+@retry(tries=10, delay=0.1)
+def rename_file (temp_location, final_location):
+    'Rename a file, avoid collisions with others'
+    shutil.move(temp_location, final_location)
+
+@retry(tries=10, delay=0.1)
+def remote_copy_file (url, cache_dir, final_location):
+    'Use xrdp or http download to copy the file locally'
+    if os.path.exists(final_location):
+        return
+
+    temp_location = f'{cache_dir}/{str(uuid.uuid4())}'
+    if 'http' in url:
+        logging.info(f'Copying file from internet to {final_location} using http')
+        get_response = requests.get(url,stream=True)
+        with open(temp_location, 'wb') as f:
+            for chunk in get_response.iter_content(chunk_size=1024):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+        os_result = 0
+    else:
+        logging.info(f'Copying file from internet to {final_location} using root')
+        os_result = os.system(f'xrdcp {url} {temp_location}')
+    logging.info(f'Done doing the copy {final_location}.')
+    if os_result != 0:
+        raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
+    rename_file (temp_location, final_location)
+
+@retry(tries=10, delay=0.1)
+def save_cache_file(r, cache_path):
+    with open(cache_path, 'w') as f:
+        f.write(json.dumps(r))        
+
+def process_copy(r, cache_dir, cache_file, cache_notdone_file):
+    'Do the copy in a separate thread, and to random files to make sure we do not step of people. and be mindful other threads are doing the same.'
+
+    # Create the cache directory if it doesn't already exist.
     create_cache_dir(cache_dir)
 
-    for url,t_name in r['files']:
+    # Now copy the files locally.
+    local_files = []
+    for url,t_name in (r['httpfiles'] if 'httpfiles' in r else r['files']):
         p_bits = urllib.parse.urlparse(url)
         f_name = os.path.basename(p_bits.path)
         local_files.append([f_name, t_name])
         final_location = f'{cache_dir}/{f_name}'
-        os_result = os.system(f'xrdcp {url} {final_location}')
-        if os_result != 0:
-            raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
+        remote_copy_file(url, cache_dir, final_location)
     r['localfiles'] = local_files
-    return r
+
+    # Now we can cache this. How the caching happens depends if this is a final answer or not.
+    cache_path = cache_file if r['done'] else cache_notdone_file
+    save_cache_file (r, cache_path)
+
+@retry()
+def process_queue():
+    global copy_queue
+    while True:
+        t = copy_queue.get()
+        process_copy(*t)
+        copy_queue.task_done()
+
+for _ in range(0,32):
+    t = Thread(target=process_queue)
+    t.daemon = True
+    t.start()
 
 cache_dir = '/cache'
 
@@ -100,24 +161,36 @@ def query(body):
     hash = calc_ast_hash(a)
     cache_location = os.path.join(cache_dir, hash)
     cache_result = os.path.join(cache_location, 'result.json')
+    cache_notdone_result = os.path.join(cache_location, 'result-notdone.json')
+    cache_done_but_not_processed = os.path.join(cache_location, 'result-done.json')
 
     # Do we have a cache hit?
     if os.path.isfile(cache_result):
         with open(cache_result, 'r') as o:
             result = json.load(o)
     else:
-        local_cache_item_dir = os.path.join(cache_dir,hash)
-        try:
-            result = fetch_data(a, local_cache_item_dir)
-        except:
-            if os.path.exists(local_cache_item_dir):
-                shutil.rmtree(local_cache_item_dir)
-            raise
+        if os.path.exists(cache_done_but_not_processed):
+            with open(cache_done_but_not_processed, 'r') as f:
+                result = json.load(f)
+        else:
+            result = fetch_data(raw_data, cache_location, cache_result, cache_notdone_result)
+            if result['done']:
+                create_cache_dir(cache_location)
+                with open(cache_done_but_not_processed, 'w') as f:
+                    json.dump(result, f)
 
-        # Only cache if the job is done.
-        if result['done'] == True:
-            with open(cache_result, 'w') as o:
-                json.dump(result, o)
+        # The file copies have been queued. We have to return the last
+        # thing. We do this b.c. the copies sometimes take some time to get here.
+        if os.path.exists(cache_notdone_result):
+            with open(cache_notdone_result, 'r') as o:
+                result = json.load(o)
+        else:
+            result['localfiles'] = []
+            result['files'] = []
+            result['httpfiles'] = []
+            if result['done']:
+                result['done'] = False
+                result['phase'] = 'caching'
 
     # Add the prefix back in
     external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)

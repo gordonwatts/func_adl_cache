@@ -16,4 +16,4 @@ ENV PYTHONUNBUFFERED=1
 
 # Run the server
 ENTRYPOINT ["gunicorn"]
-CMD ["--bind", "0.0.0.0:8000", "-w", "4", "--log-file", "-", "--log-level", "debug", "query:__hug_wsgi__"]
+CMD ["--bind", "0.0.0.0:8000", "-w", "1", "--log-file", "-", "--log-level", "debug", "query:__hug_wsgi__"]

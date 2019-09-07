@@ -1,6 +1,7 @@
 # Test the query caching system. Lots of mocks!
 import sys
 sys.path.append('.')
+
 from func_adl_cache.query import query, CacheCopyError, CacheRemoteError
 from adl_func_client.event_dataset import EventDataset
 import pytest

@@ -1,12 +1,33 @@
 {
     "docker.imageBuildContextPath": ".",
     "cSpell.words": [
+        "DAOD",
+        "EXOT",
+        "NNPDF",
+        "ROOTT",
+        "Topo",
+        "getcwd",
         "isdir",
         "isfile",
+        "kubectl",
+        "localds",
+        "ltlow",
+        "pytest",
+        "rmtree",
         "shutil",
-        "xrdcp"
+        "signum",
+        "xrdcp",
+        "xrdp"
     ],
     "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "python.testing.promptToConfigure": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.analysis.memory.keepLibraryAst": true,
+    "python.analysis.memory.keepLibraryLocalVariables": true,
+    "python.linting.flake8CategorySeverity.E": "Information",
+    "python.linting.flake8CategorySeverity.F": "Information",
+    "python.linting.flake8CategorySeverity.W": "Information",
+    "python.linting.flake8Enabled": true,
+    "python.linting.maxNumberOfProblems": 20,
+    "python.linting.pylintEnabled": false,
 }

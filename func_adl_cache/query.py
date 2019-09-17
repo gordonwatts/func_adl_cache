@@ -13,6 +13,7 @@ from retry import retry
 from queue import Queue
 import logging
 import uuid
+import time
 import copy
 from threading import Thread
 
@@ -77,6 +78,8 @@ def remote_copy_file (url, cache_dir, final_location):
     if os.path.exists(final_location):
         return
 
+    start_time = time.time()
+
     temp_location = f'{cache_dir}/{str(uuid.uuid4())}'
     if 'http' in url:
         logging.info(f'Copying file from internet to {final_location} using http')
@@ -89,7 +92,8 @@ def remote_copy_file (url, cache_dir, final_location):
     else:
         logging.info(f'Copying file from internet to {final_location} using root')
         os_result = os.system(f'xrdcp {url} {temp_location}')
-    logging.info(f'Done doing the copy {final_location}.')
+    elapsed_time = time.time() - start_time
+    logging.info(f'Done doing the copy {final_location} (copy took {elapsed_time:.3f} seconds).')
     if os_result != 0:
         raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
     rename_file (temp_location, final_location)
@@ -183,7 +187,12 @@ def query(body):
         # thing. We do this b.c. the copies sometimes take some time to get here.
         if os.path.exists(cache_notdone_result):
             with open(cache_notdone_result, 'r') as o:
-                result = json.load(o)
+                data = o.read()
+                try:
+                    result = json.loads(data)
+                except:
+                    print (f"ERROR - failed to load data: '{data}'")
+                result['phase'] = 'caching'
         else:
             result['localfiles'] = []
             result['files'] = []

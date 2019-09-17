@@ -127,7 +127,7 @@ def test_good_call_no_prefix(good_query_ast_body, no_prefix_env, already_done_ds
 def test_copy_fails_party_way_through(good_query_ast_body, no_prefix_env, already_done_ds, bad_2nd_copy_command, rmtree_call):
     'Fail with the copy part way, make sure the whole cache is invalid'
     try:
-        r = query(good_query_ast_body)
+        query(good_query_ast_body)
         assert False
     except CacheCopyError:
         pass
@@ -138,7 +138,7 @@ def test_copy_fails_party_way_through(good_query_ast_body, no_prefix_env, alread
 def test_bad_remote_call(good_query_ast_body, no_prefix_env, failed_ds_request):
     'Fail with the copy part way, make sure the whole cache is invalid'
     try:
-        r = query(good_query_ast_body)
+        query(good_query_ast_body)
         assert False
     except CacheRemoteError:
         pass
@@ -159,7 +159,7 @@ def test_ds_not_done(good_query_ast_body, no_prefix_env, not_done_ds):
     assert r['done'] == False
 
 def test_good_call_change_prefix(good_query_ast_body, good_query_ast_body2, no_prefix_env, already_done_ds, good_copy_command):
-    r1 = query(good_query_ast_body)
+    query(good_query_ast_body)
     os.environ['LOCAL_FILE_URL'] = 'file:///c:\\dude\\cache'
     r2 = query(good_query_ast_body2)
     assert r2['files'][0][0].replace('\\','/') == 'http://remote:8000/blah/file.root'

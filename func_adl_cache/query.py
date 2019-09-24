@@ -202,8 +202,9 @@ def query(body):
                 result['phase'] = 'caching'
 
     # Add the prefix back in
-    external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)
-    result['localfiles'] = [[f'{external_cache_location}/{f}', t_name] for f, t_name in result['localfiles']]
+    if 'localfiles' in result:
+        external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)
+        result['localfiles'] = [[f'{external_cache_location}/{f}', t_name] for f, t_name in result['localfiles']]
 
     return result
 

@@ -19,19 +19,24 @@ from threading import Thread
 
 logging.basicConfig(level=logging.INFO)
 
+
 class BadASTException(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
+
 
 class CacheCopyError(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
 
+
 class CacheRemoteError(BaseException):
     def __init__(self, message):
         BaseException.__init__(self, message)
 
+
 copy_queue = Queue()
+
 
 @retry(tries=10, delay=0.1)
 def create_cache_dir(cache_dir):
@@ -43,9 +48,10 @@ def create_cache_dir(cache_dir):
     '''
     if not os.path.isdir(cache_dir):
         if os.path.exists(cache_dir):
-            print (f'ERROR: The directory {cache_dir} exists, but is not a directory. Deleting.')
+            print(f'ERROR: The directory {cache_dir} exists, but is not a directory. Deleting.')
             os.unlink(cache_dir)
         os.makedirs(cache_dir)
+
 
 @retry(tries=10, delay=0.1)
 def fetch_data(ast_data, cache_dir, cache_file, cache_notdone_file):
@@ -55,8 +61,8 @@ def fetch_data(ast_data, cache_dir, cache_file, cache_notdone_file):
     lm = os.environ["REMOTE_QUERY_URL"]
     logging.info(f'Requesting data from {lm}')
     raw = requests.post(lm,
-        headers={"content-type": "application/octet-stream"},
-        data=ast_data)
+                        headers={"content-type": "application/octet-stream"},
+                        data=ast_data)
     try:
         r = raw.json()
     except json.decoder.JSONDecodeError:
@@ -64,16 +70,18 @@ def fetch_data(ast_data, cache_dir, cache_file, cache_notdone_file):
 
     # Queue up the cacheing
     global copy_queue
-    copy_queue.put_nowait (copy.deepcopy((r, cache_dir, cache_file, cache_notdone_file)))
+    copy_queue.put_nowait(copy.deepcopy((r, cache_dir, cache_file, cache_notdone_file)))
     return r
 
+
 @retry(tries=10, delay=0.1)
-def rename_file (temp_location, final_location):
+def rename_file(temp_location, final_location):
     'Rename a file, avoid collisions with others'
     shutil.move(temp_location, final_location)
 
+
 @retry(tries=10, delay=0.1)
-def remote_copy_file (url, cache_dir, final_location):
+def remote_copy_file(url, cache_dir, final_location):
     'Use xrdp or http download to copy the file locally'
     if os.path.exists(final_location):
         return
@@ -83,10 +91,10 @@ def remote_copy_file (url, cache_dir, final_location):
     temp_location = f'{cache_dir}/{str(uuid.uuid4())}'
     if 'http' in url:
         logging.info(f'Copying file from internet to {final_location} using http')
-        get_response = requests.get(url,stream=True)
+        get_response = requests.get(url, stream=True)
         with open(temp_location, 'wb') as f:
             for chunk in get_response.iter_content(chunk_size=1024):
-                if chunk: # filter out keep-alive new chunks
+                if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
         os_result = 0
     else:
@@ -96,12 +104,14 @@ def remote_copy_file (url, cache_dir, final_location):
     logging.info(f'Done doing the copy {final_location} (copy took {elapsed_time:.3f} seconds).')
     if os_result != 0:
         raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
-    rename_file (temp_location, final_location)
+    rename_file(temp_location, final_location)
+
 
 @retry(tries=10, delay=0.1)
 def save_cache_file(r, cache_path):
     with open(cache_path, 'w') as f:
-        f.write(json.dumps(r))        
+        f.write(json.dumps(r))
+
 
 def process_copy(r, cache_dir, cache_file, cache_notdone_file):
     'Do the copy in a separate thread, and to random files to make sure we do not step of people. and be mindful other threads are doing the same.'
@@ -111,7 +121,7 @@ def process_copy(r, cache_dir, cache_file, cache_notdone_file):
 
     # Now copy the files locally.
     local_files = []
-    for url,t_name in (r['httpfiles'] if 'httpfiles' in r else r['files']):
+    for url, t_name in (r['httpfiles'] if 'httpfiles' in r else r['files']):
         p_bits = urllib.parse.urlparse(url)
         f_name = os.path.basename(p_bits.path)
         local_files.append([f_name, t_name])
@@ -121,7 +131,8 @@ def process_copy(r, cache_dir, cache_file, cache_notdone_file):
 
     # Now we can cache this. How the caching happens depends if this is a final answer or not.
     cache_path = cache_file if r['done'] else cache_notdone_file
-    save_cache_file (r, cache_path)
+    save_cache_file(r, cache_path)
+
 
 @retry()
 def process_queue():
@@ -131,12 +142,15 @@ def process_queue():
         process_copy(*t)
         copy_queue.task_done()
 
-for _ in range(0,32):
+
+for _ in range(0, 32):
     t = Thread(target=process_queue)
     t.daemon = True
     t.start()
 
+
 cache_dir = '/cache'
+
 
 @hug.post('/query')
 def query(body):
@@ -151,7 +165,7 @@ def query(body):
         Results of the run
     '''
     # If they are sending something too big, then we are just going to bail out of this now.
-    if body.stream_len > 1024*1000*100:
+    if body.stream_len > 1024 * 1000 * 100:
         raise BaseException("Too big an AST to process!")
 
     # Read the AST in from the incoming data.
@@ -190,8 +204,8 @@ def query(body):
                 data = o.read()
                 try:
                     result = json.loads(data)
-                except:
-                    print (f"ERROR - failed to load data: '{data}'")
+                except BaseException:
+                    print(f"ERROR - failed to load data: '{data}'")
                 result['phase'] = 'caching'
         else:
             result['localfiles'] = []
@@ -208,9 +222,11 @@ def query(body):
 
     return result
 
+
 # Pay attention to the signal docker and kubectl will send us
 # so we can shut down fast.
 def do_shutdown(signum, frame):
     exit(1)
+
 
 signal.signal(signal.SIGTERM, do_shutdown)

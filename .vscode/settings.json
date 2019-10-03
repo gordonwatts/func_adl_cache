@@ -32,6 +32,7 @@
     "python.linting.maxNumberOfProblems": 20,
     "python.linting.pylintEnabled": false,
     "python.linting.flake8Args": [
-        "--ignore=E501"
+        "--ignore=E501",
+        "--exclude=tests/*"
     ],
 }

@@ -60,18 +60,22 @@ def fetch_data(ast_data, cache_dir, cache_file, cache_notdone_file):
     # Get the localtion of the data.
     lm = os.environ["REMOTE_QUERY_URL"]
     logging.info(f'Requesting data from {lm}')
-    raw = requests.post(lm,
-                        headers={"content-type": "application/octet-stream"},
-                        data=ast_data)
     try:
-        r = raw.json()
-    except json.decoder.JSONDecodeError:
-        raise CacheRemoteError(f'Call to remote func-adl server failed: {raw.content}')
+        raw = requests.post(lm,
+                            headers={"content-type": "application/octet-stream"},
+                            data=ast_data,
+                            timeout=10)
+        try:
+            r = raw.json()
+        except json.decoder.JSONDecodeError:
+            raise CacheRemoteError(f'Call to remote func-adl server failed: {raw.content}')
 
-    # Queue up the cacheing
-    global copy_queue
-    copy_queue.put_nowait(copy.deepcopy((r, cache_dir, cache_file, cache_notdone_file)))
-    return r
+        # Queue up the cacheing
+        global copy_queue
+        copy_queue.put_nowait(copy.deepcopy((r, cache_dir, cache_file, cache_notdone_file)))
+        return r
+    finally:
+        logging.info(f'Finished data request from {lm}')
 
 
 @retry(tries=10, delay=0.1)
@@ -89,22 +93,26 @@ def remote_copy_file(url, cache_dir, final_location):
     start_time = time.time()
 
     temp_location = f'{cache_dir}/{str(uuid.uuid4())}'
-    if 'http' in url:
-        logging.info(f'Copying file from internet to {final_location} using http')
-        get_response = requests.get(url, stream=True)
-        with open(temp_location, 'wb') as f:
-            for chunk in get_response.iter_content(chunk_size=1024):
-                if chunk:  # filter out keep-alive new chunks
-                    f.write(chunk)
-        os_result = 0
-    else:
-        logging.info(f'Copying file from internet to {final_location} using root')
-        os_result = os.system(f'xrdcp {url} {temp_location}')
-    elapsed_time = time.time() - start_time
-    logging.info(f'Done doing the copy {final_location} (copy took {elapsed_time:.3f} seconds).')
-    if os_result != 0:
-        raise CacheCopyError(f'Failed to copy file {url} to {final_location}.')
-    rename_file(temp_location, final_location)
+    try:
+        if 'http' in url:
+            logging.info(f'Copying file from internet to {final_location} using http')
+            get_response = requests.get(url, stream=True)
+            with open(temp_location, 'wb') as f:
+                for chunk in get_response.iter_content(chunk_size=1024):
+                    if chunk:  # filter out keep-alive new chunks
+                        f.write(chunk)
+            os_result = 0
+        else:
+            logging.info(f'Copying file from internet to {final_location} using root')
+            os_result = os.system(f'xrdcp {url} {temp_location}')
+        elapsed_time = time.time() - start_time
+        logging.info(f'Done doing the copy {final_location} (copy took {elapsed_time:.3f} seconds).')
+        if os_result != 0:
+            raise CacheCopyError(f'Failed to copy file {url} to {final_location} (os code {os_result}).')
+        rename_file(temp_location, final_location)
+    finally:
+        if os.path.exists(temp_location):
+            os.remove(temp_location)
 
 
 @retry(tries=10, delay=0.1)

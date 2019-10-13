@@ -7,7 +7,7 @@ import json
 import requests
 import shutil
 import urllib
-from adl_func_backend.ast.ast_hash import calc_ast_hash
+from func_adl.xAOD.backend.ast.ast_hash import calc_ast_hash
 import signal
 from retry import retry
 from queue import Queue

@@ -213,7 +213,7 @@ def query(body):
                 try:
                     result = json.loads(data)
                 except BaseException:
-                    print(f"ERROR - failed to load data: '{data}'")
+                    print(f"ERROR - failed to load data: '{data}' from file {cache_notdone_result}")
                 result['phase'] = 'caching'
         else:
             result['localfiles'] = []

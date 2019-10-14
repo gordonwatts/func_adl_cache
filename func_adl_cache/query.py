@@ -228,6 +228,8 @@ def query(body):
         external_cache_location = os.path.join(os.environ['LOCAL_FILE_URL'], hash)
         result['localfiles'] = [[f'{external_cache_location}/{f}', t_name] for f, t_name in result['localfiles']]
 
+    print(f'{hash} - done: {result["done"]} phase: {result["phase"]}')
+
     return result
 
 
